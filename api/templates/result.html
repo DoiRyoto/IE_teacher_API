@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<!DOCTYPE html>
+<html lang="ja">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link href="https://stackpath.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jpswalsh/academicons/css/academicons.min.css">
+    <head>
+        <title>情報工学先生</title>
+        <meta charset="utf-8"/>
+    </head>
+    <body>
+        <header>
+            <div class="header-container">
+                <a class="header-img" href="{{ url_for('index') }}">
+                    <img src="\static\figures\header_logo.jpg" alt="情報工学先生">
+                </a>
+                <form class="form-header" method="post">
+                    <div class="form-group">
+                        <label for="screen_name"></label>
+                        <input id="keyword" name="keyword" placeholder="論文タイトルかキーワードを入力してください。" type="text" class="c-form-text">
+                        <input type="submit"  value="&#xf002" class="search-button">
+                    </div>
+                </form>
+            </div>
+        </header>
+        
+        <div class="result_content"></div>
+            <h1>選択した参考文献一覧</h1>
+            <table class="ref_table">
+                <thead>
+                    <tr>
+                        <th colspan="1">title</th>
+                        <th colspan="1">tldr</th>
+                        <th colspan="1">year</th>
+                        <th colspan="1">citationCount</th>
+                        <th colspan="1">journal/conference</th>
+                        <th colspan="1">fields</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for paper in papers %}
+                    <tr>
+                        <td>
+                            {{ paper["title"] }}
+                            <a class="seman_logo_container" href='{{ paper["url"] }}' target="_blank">
+                                <i class="ai ai-semantic-scholar ai-1x">Semantic Scholar</i>
+                                <!-- <img src="https://assets-global.website-files.com/605236bb767e9a5bb229c63c/605274dd4af9b0ca8ac84182_s2-logo.svg" loading="lazy" height="20" alt="Semantic Scholar" class="link_seman_logo"> -->
+                            </a>
+                        </td>
+                        <td>
+                            {{ paper["tldr"] }}
+                        </td>
+                        <td>
+                            {{ paper["year"] }}
+                        </td>
+                        <td>
+                            {{ paper["citationCount"] }}
+                        </td>
+                        <td>
+                            {{ paper["venue"] }}
+                        </td>
+                        <td>
+                            {{ paper["fieldsOfStudy"] }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            <div class="feedback-container">
+                <a href="https://docs.google.com/forms/d/e/1FAIpQLSe9_7O1elUE_3yFz5InsYa9R8sRgS-soVp4E1Jp-iYQYsAdnQ/viewform?usp=sf_link"  target="_blank">フィードバックはこちら</a>
+            </div>
+        </div>
+    </body>
+</html>
