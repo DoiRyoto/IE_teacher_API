@@ -9,21 +9,19 @@ from requests import Session
 import os
 from typing import Generator, TypeVar
 
-S2_API_KEY = os.environ.get('S2_API_KEY', '')
-
 T = TypeVar('T')
 
 
 def batched(items: list[T], batch_size: int) -> list[T]:
     return [items[i:i + batch_size] for i in range(0, len(items), batch_size)]
 
-def get_paper_batch(session: Session, ids: list[str], fields: str = 'paperId,title', **kwargs) -> list[dict]:
+def get_paper_batch(session: Session, api_key: str, ids: list[str], fields: str = 'paperId,title', **kwargs) -> list[dict]:
     params = {
         'fields': fields,
         **kwargs,
     }
     headers = {
-        'x-api-key': S2_API_KEY,
+        'x-api-key': api_key,
     }
     body = {
         'ids': ids,
@@ -38,12 +36,36 @@ def get_paper_batch(session: Session, ids: list[str], fields: str = 'paperId,tit
         response.raise_for_status()
         return response.json()
     
-def get_papers(ids: list[str], batch_size: int = 100, **kwargs) -> Generator[dict, None, None]:
+def get_paper_batch_free(session: Session, ids: list[str], fields: str = 'paperId,title', **kwargs) -> list[dict]:
+    params = {
+        'fields': fields,
+        **kwargs,
+    }
+    body = {
+        'ids': ids,
+    }
+
+    # https://api.semanticscholar.org/api-docs/graph#tag/Paper-Data/operation/post_graph_get_papers
+    with session.post(url='https://api.semanticscholar.org/graph/v1/paper/batch',
+                    params=params,
+                    json=body) as response:
+        
+        response.raise_for_status()
+        return response.json()
+    
+def get_papers(ids: list[str], api_key: str, batch_size: int = 100, **kwargs) -> Generator[dict, None, None]:
     # use a session to reuse the same TCP connection
     with Session() as session:
         # take advantage of S2 batch paper endpoint
         for ids_batch in batched(ids, batch_size=batch_size):
-            yield from get_paper_batch(session, ids_batch, **kwargs)
+            yield from get_paper_batch(session, api_key, ids_batch, **kwargs)
+
+def get_papers_free(ids: list[str], batch_size: int = 100, **kwargs) -> Generator[dict, None, None]:
+    # use a session to reuse the same TCP connection
+    with Session() as session:
+        # take advantage of S2 batch paper endpoint
+        for ids_batch in batched(ids, batch_size=batch_size):
+            yield from get_paper_batch_free(session, ids_batch, **kwargs)
 
 class PaperCaller:
     def __init__(self):
@@ -67,7 +89,7 @@ class PaperCaller:
         
         return True
     
-    def get_papers_by_keyword(self, keyword, limit=100)->list:
+    def get_papers_by_keyword(self, api_key, keyword, limit=100)->list:
         # 論文データ取得用のパラメータ設定
         endpoint = 'https://api.semanticscholar.org/graph/v1/paper/search'
         params = {
@@ -77,7 +99,11 @@ class PaperCaller:
         }
         
         # 論文データ取得
-        r = requests.get(url=endpoint, params=params, headers={"x-api-key": S2_API_KEY})
+        if api_key != "None":
+            r = requests.get(url=endpoint, params=params, headers={"x-api-key": api_key})
+        else:
+            r = requests.get(url=endpoint, params=params)
+
         r_dict = json.loads(r.text)
 
         # 結果を確認
@@ -95,9 +121,15 @@ class PaperCaller:
         return data
       
     #getメソッドで論文1個を取得するメソッド
-    def get_paper_by_paperId(self, paperID)->dict:
+    def get_paper_by_paperId(self, paperID, api_key)->dict:
         endpoint = "https://api.semanticscholar.org/graph/v1/paper/{}?fields={}".format(paperID, "title,year,citationCount,tldr,url")
-        r=requests.get(endpoint, headers={"x-api-key": S2_API_KEY})
+
+        # 論文データ取得
+        if api_key != "None":
+            r = requests.get(url=endpoint, headers={"x-api-key": api_key})
+        else:
+            r = requests.get(url=endpoint)
+
         r = '{"data": ' + r.text.replace("\n", "") + "}"
         r_dict = json.loads(r)["data"]
 
@@ -109,19 +141,25 @@ class PaperCaller:
         
         return papers[0]
     
-    def get_papers_by_paperIds(self, paperIDs, limit=500)->list:
+    def get_papers_by_paperIds(self, paperIDs, api_key, limit=500)->list:
         # 論文データ取得用のパラメータ設定
         fields = 'title,year,citationCount,authors,abstract,tldr,url'
         paperIDs = paperIDs[:limit]
 
         r_dict = []
         # 論文データ取得
-        print("papers取得")
-        for paper in get_papers(paperIDs, fields=fields):
-            if not paper:
-                continue
+        if api_key != "None":
+            for paper in get_papers(paperIDs, api_key, fields=fields):
+                if not paper:
+                    continue
             
-            r_dict.append(paper)
+                r_dict.append(paper)
+        else:
+            for paper in get_papers_free(paperIDs, api_key, fields=fields):
+                if not paper:
+                    continue
+            
+                r_dict.append(paper)
 
 
         # 結果を確認
@@ -130,26 +168,30 @@ class PaperCaller:
             return []
         
         r_dict = self._cut_none(r_dict)
-        print(len(r_dict))
         self._culcurate_importance(r_dict, alpha=0.0)
         self._extract_tldr(r_dict)
 
         return r_dict
     
-    def get_papers_by_paperIds_for_result(self, paperIDs, limit=500)->list:
+    def get_papers_by_paperIds_for_result(self, paperIDs, api_key, limit=500)->list:
         # 論文データ取得用のパラメータ設定
         fields = 'title,year,citationCount,authors,abstract,tldr,url,journal,venue,fieldsOfStudy'
         paperIDs = paperIDs[:limit]
 
         r_dict = []
         # 論文データ取得
-        print("papers取得")
-        for paper in get_papers(paperIDs, fields=fields):
-            if not paper:
-                continue
+        if api_key != "None":
+            for paper in get_papers(paperIDs, api_key, fields=fields):
+                if not paper:
+                    continue
             
-            r_dict.append(paper)
-
+                r_dict.append(paper)
+        else:
+            for paper in get_papers_free(paperIDs, api_key, fields=fields):
+                if not paper:
+                    continue
+            
+                r_dict.append(paper)
 
         # 結果を確認
         if not self.check_api_result(r_dict):
@@ -157,7 +199,6 @@ class PaperCaller:
             return []
         
         r_dict = self._cut_none(r_dict)
-        print(len(r_dict))
         self._culcurate_importance(r_dict, alpha=0.0)
         self._extract_tldr(r_dict)
 
@@ -174,7 +215,7 @@ class PaperCaller:
 
         return papers
     
-    def get_reference_papers_ids_by_main_paper_id(self, paperID, limit=1000):
+    def get_reference_papers_ids_by_main_paper_id(self, paperID, api_key, limit=1000):
         endpoint = 'https://api.semanticscholar.org/graph/v1/paper/{}/references'.format(paperID)
         fields = ("paperId",)
         params = {
@@ -183,7 +224,11 @@ class PaperCaller:
         }
         
         # 論文データ取得
-        r = requests.get(url=endpoint, params=params, headers={"x-api-key": S2_API_KEY})
+        if api_key != "None":
+            r = requests.get(url=endpoint, params=params, headers={"x-api-key": api_key})
+        else:
+            r = requests.get(url=endpoint, params=params)
+            
         r_dict = json.loads(r.text)
 
         # 結果を確認
