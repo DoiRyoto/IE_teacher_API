@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from data.call_meta_paper import *
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
 
@@ -26,6 +27,20 @@ KEYWORD_SEARCH_GET_LIMIT = 100
 PAPER_IDS_POST_LIMIT = 500
 
 REFERENCE_PAPERS_GET_LIMIT = 500
+
+origins = [
+    "http://localhost",
+    "http://localhost:3000",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 
 
 @app.get("/paper/{keyword}")
