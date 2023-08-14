@@ -28,11 +28,6 @@ PAPER_IDS_POST_LIMIT = 500
 
 REFERENCE_PAPERS_GET_LIMIT = 500
 
-origins = [
-    "http://localhost",
-    "http://localhost:3000",
-]
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
